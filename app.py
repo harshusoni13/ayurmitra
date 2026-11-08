@@ -1,6 +1,5 @@
 import os
 import json
-import urllib.request
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -37,7 +36,6 @@ def load_data_and_index():
     corpus = []
     documents = []
 
-    # Flatten structured 9 months into searchable context blocks
     for month_entry in data.get("months", []):
         m_num = month_entry.get("month")
         m_name = month_entry.get("month_name")
@@ -59,14 +57,11 @@ def load_data_and_index():
                 "modern_correlation": modern
             }
             corpus.append(item)
-            # Create a rich textual index representation
             doc_text = f"Month {m_num} {m_name} {item['authority']} {item['reference']} {item['regimen']} {item['rationale']} {item['sanskrit']} {' '.join(dos)} {' '.join(donts)} {modern}"
             documents.append(doc_text)
 
-    # Initialize TF-IDF Vectorizer
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english")
     tfidf_matrix = vectorizer.fit_transform(documents)
-    print(f"✅ AyurMitra Lightweight Engine Loaded with {len(corpus)} classical contexts.")
 
 class QueryRequest(BaseModel):
     query: str
@@ -78,7 +73,7 @@ def home():
         "project": "AyurMitra",
         "tagline": "Grounded in Classical Ayurvedic Literature",
         "status": "Online",
-        "engine": "Optimized High-Performance Vector Retrieval",
+        "engine": "Optimized Vector Retrieval",
         "indexed_chunks": len(corpus)
     }
 
@@ -89,7 +84,6 @@ def retrieve_contexts(req: QueryRequest):
 
     query_vec = vectorizer.transform([req.query])
     scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
-
     top_indices = np.argsort(scores)[::-1][:req.top_k]
 
     results = []
@@ -98,16 +92,14 @@ def retrieve_contexts(req: QueryRequest):
         item["similarity_score"] = round(float(scores[idx]), 4)
         results.append(item)
 
-    inference_info = {
-        "status": "standby",
-        "model": "AyurParam 2.9B (BharatGen)",
-        "message": "Serving 100% verified authentic classical citations directly from Brihat-trayi corpus."
-    }
-
     return {
         "query": req.query,
-        "inference": inference_info,
+        "inference": {
+            "status": "standby",
+            "model": "AyurParam 2.9B (BharatGen)",
+            "message": "Serving verified classical citations directly from Brihat-trayi corpus."
+        },
         "results_count": len(results),
         "citations": results,
-        "disclaimer": "This information is derived from authentic Ayurvedic Samhitas for academic and clinical reference only."
+        "disclaimer": "Derived from authentic Ayurvedic Samhitas for academic and clinical reference."
     }
